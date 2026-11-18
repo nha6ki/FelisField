@@ -1,39 +1,45 @@
 # FelisField
 
-6つの出典から採用した17,303枚の猫写真を、見た目の近さを手がかりに3D空間で探索するアプリです。点にカーソルを合わせるかタップすると、その写真が開きます。作者表記やライセンスは「出典・クレジット」で確認できます。
+**English** · [日本語](README.ja.md)
 
-## 地図の作り方
+FelisField is an interactive 3D map of 17,303 cat photographs from six sources. Each point represents one photograph. Hover over a point or tap it to see the photo, then open **出典・クレジット** (Sources and credits) for its attribution and license.
 
-29,046枚にMask2Formerを適用し、検出スコアと領域サイズの条件を満たした写真を採用しました。複数の猫が検出された場合は、最も広い領域を使います。猫領域の色分布（64次元）と、背景を一定色にした切り抜きのDINOv2特徴（PCAで50次元）に等しい重みを与え、UMAPで3次元に配置します。点の表示色はKMeansによる6群を示します。写真の個体識別や手作業による輪郭確認は行っていません。
+## How the map works
 
-## 既存のデータを使って動かす
+We ran Mask2Former on 29,046 photographs and kept those that met the detection score and minimum region size thresholds. When a photo contained multiple detected cats, we used the largest predicted cat region. The displayed preview still shows the whole photograph.
 
-以下はWSLのプロジェクトディレクトリで実行します。ローカル表示と書き出しにはPython 3とNumPy、下記の生成済みデータを使います。解析時の環境はPython 3.12、NumPy 2.3.5、scikit-learn 1.8.0、umap-learn 0.5.9.post2でした。
+Two features contribute equally to the map: a 64-dimensional color histogram of the cat region and a DINOv2 embedding of the cropped cat with the background set to a uniform color. We reduced the embedding to 50 dimensions using PCA, combined the two features, and used UMAP to place the photos in 3D. Point colors indicate six K-means clusters. The pipeline does not identify individual cats, and the predicted masks have not been manually reviewed.
 
-| ローカルファイル | 用途 |
+## Run locally with prepared data
+
+Run the commands below from the project directory in WSL. The local viewer and static export use Python 3, NumPy, and the following prepared files. The analysis used Python 3.12, NumPy 2.3.5, scikit-learn 1.8.0, and umap-learn 0.5.9.post2.
+
+| Local path | Contents |
 | --- | --- |
-| results/coat_full50/points.json | 写真ID、原画像ハッシュ、座標、クラスタ、出典 |
-| results/coat_full50/row_ids.json | 座標と写真の順序の検証 |
-| results/coat_full50/summary.json | 完了した解析の概要 |
-| results/coat_full50/credit_audit.json | 写真別の帰属表示とライセンス情報 |
-| data/web_previews_v1/ | 原画像のSHA-256をファイル名にした表示用JPEG |
+| `results/coat_full50/points.json` | Photo IDs, original image hashes, coordinates, cluster assignments, and sources |
+| `results/coat_full50/row_ids.json` | Photo IDs in coordinate row order |
+| `results/coat_full50/summary.json` | Summary of the completed analysis |
+| `results/coat_full50/credit_audit.json` | Attribution and license information for each photo |
+| `data/web_previews_v1/` | JPEG previews named by the SHA-256 hash of the original image |
+
+Start the local viewer, then open <http://localhost:8767>.
 
 ```bash
 ./.venv/bin/python felisfield_coat_full.py --serve --project "$PWD"
 ```
 
-ブラウザで <http://localhost:8767> を開きます。静的サイトは次のコマンドで書き出せます。
+To export the static site, run:
 
 ```bash
 ./.venv/bin/python felisfield_export_site.py
 ```
 
-出力先はプロジェクトと同じ親ディレクトリの `FelisField-releases/site/` です。配信用ファイルは17,303枚のJPEGと、index.html、map.jsonの合計17,305個です。
+The exporter writes to `FelisField-releases/site/` alongside the project directory. The site contains 17,305 files: 17,303 JPEG previews, `index.html`, and `map.json`.
 
-## コードの構成
+## Code layout
 
-- `felisfield_coat_full.py` は全件解析と現行のWeb画面、`felisfield_coat_viewer.py` はローカル配信処理と比較用ビューアーを含みます。
-- `felisfield_local.py` は写真プレビューの生成、`felisfield_coat_pilot.py` と `felisfield_coat_compare.py` は領域抽出・予備比較を担当します。
-- `felisfield_coat_eval.py` と `felisfield_pattern_eval.py` は近傍評価、`felisfield_credit_audit.py` は出典台帳の照合に使います。
+- `felisfield_coat_full.py` runs the full analysis and defines the map interface. `felisfield_coat_viewer.py` provides the local HTTP handler and a viewer for comparing configurations.
+- `felisfield_local.py` generates photo previews. `felisfield_coat_pilot.py` extracts cat regions and features, and `felisfield_coat_compare.py` compares pilot configurations.
+- `felisfield_coat_eval.py` and `felisfield_pattern_eval.py` evaluate map neighborhoods. `felisfield_credit_audit.py` matches photos to their source records.
 
-このリポジトリの対象はソースコードです。写真・原台帳・特徴量・学習済み重みは別途必要です。各写真の利用条件はそれぞれの出典に従います。モデルの重みも配布元の条件に従います。
+This repository contains the source code. Photographs, original source records, extracted features, and model weights must be obtained separately. Each photograph and set of model weights is subject to its provider’s terms.
